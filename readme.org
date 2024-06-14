@@ -1,0 +1,9 @@
+* Benchmarking CPU performance characteristics
+
+These are some scripts & plots inspired by Algorithmica, e.g., the
+[[https://en.algorithmica.org/hpc/cpu-cache/latency/][post on measuring memory latency]].
+
+Useful resources:
+- https://en.algorithmica.org
+- instruction tables: https://www.agner.org/optimize/instruction_tables.pdf
+- https://travisdowns.github.io/blog/2019/06/11/speed-limits.html

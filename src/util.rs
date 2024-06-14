@@ -1,3 +1,4 @@
+use super::Result;
 use rand::prelude::SliceRandom;
 use std::path::Path;
 
@@ -26,16 +27,39 @@ pub(crate) fn get_cpu() -> Option<i32> {
 }
 
 pub fn derangement(len: usize) -> Vec<usize> {
-    let mut v = (0..len).collect::<Vec<_>>();
-    v.shuffle(&mut rand::thread_rng());
-    let mut inv = vec![0; len];
-    for i in 0..len {
-        inv[v[i]] = i;
-    }
+    derangement_with_inv(len).0
+}
+
+pub fn derangement_with_inv(len: usize) -> (Vec<usize>, Vec<usize>) {
+    let mut inv = (0..len).collect::<Vec<_>>();
+    inv.shuffle(&mut rand::thread_rng());
+    let mut v = vec![0; len];
     for i in 0..len - 1 {
         v[inv[i]] = inv[i + 1];
     }
     v[inv[len - 1]] = inv[0];
-    inv.clear();
-    v
+    (v, inv)
+}
+
+/// Return an iterator over sizes to iterate over.
+/// Starts at 32B and goes up to ~1GB.
+pub fn sizes() -> impl Iterator<Item = usize> {
+    (3..30).flat_map(move |b| {
+        let base = 1 << b;
+        [base, base * 5 / 4, base * 3 / 2, base * 7 / 4]
+    })
+}
+
+pub fn run_experiment(f: impl Fn(usize) -> Result) {
+    let name = std::any::type_name_of_val(&f);
+    let name = name.strip_prefix("perf::").unwrap();
+    let name = name.replace("_", "-");
+    eprintln!("Running experiment: {}", name);
+    let results = sizes().map(|size| f(size)).collect::<Vec<_>>();
+
+    let dir = Path::new("results").to_owned();
+    std::fs::create_dir_all(&dir).unwrap();
+    let f = dir.join(name).with_extension("json");
+    let f = std::fs::File::create(f).unwrap();
+    serde_json::to_writer(f, &results).unwrap();
 }

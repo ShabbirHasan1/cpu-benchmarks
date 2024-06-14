@@ -1,6 +1,8 @@
-use super::Result;
 use rand::prelude::SliceRandom;
-use std::path::Path;
+use std::{
+    path::Path,
+    time::{Duration, Instant},
+};
 
 /// Return the current CPU frequency in Hz.
 pub(crate) fn get_cpu_freq() -> Option<f64> {
@@ -43,23 +45,79 @@ pub fn derangement_with_inv(len: usize) -> (Vec<usize>, Vec<usize>) {
 
 /// Return an iterator over sizes to iterate over.
 /// Starts at 32B and goes up to ~1GB.
-pub fn sizes() -> impl Iterator<Item = usize> {
-    (3..30).flat_map(move |b| {
+pub fn sizes(large: bool) -> Vec<usize> {
+    let mut v = vec![];
+    let max = if large { 30 } else { 24 };
+    for b in 3..max {
         let base = 1 << b;
-        [base, base * 5 / 4, base * 3 / 2, base * 7 / 4]
-    })
+        v.push(base);
+        v.push(base * 5 / 4);
+        v.push(base * 3 / 2);
+        v.push(base * 7 / 4);
+    }
+    v
 }
 
-pub fn run_experiment(f: impl Fn(usize) -> Result) {
+pub fn run_experiment(f: impl Fn(usize) -> Result, large: bool) -> Vec<Result> {
     let name = std::any::type_name_of_val(&f);
     let name = name.strip_prefix("perf::").unwrap();
     let name = name.replace("_", "-");
     eprintln!("Running experiment: {}", name);
-    let results = sizes().map(|size| f(size)).collect::<Vec<_>>();
+    sizes(large)
+        .iter()
+        .map(|size| {
+            let mut r = f(*size);
+            r.name = name.to_string();
+            r
+        })
+        .collect::<Vec<_>>()
+}
 
+pub fn save_results(results: Vec<Result>, name: &str) {
     let dir = Path::new("results").to_owned();
     std::fs::create_dir_all(&dir).unwrap();
     let f = dir.join(name).with_extension("json");
     let f = std::fs::File::create(f).unwrap();
     serde_json::to_writer(f, &results).unwrap();
+}
+#[derive(serde::Serialize)]
+pub struct Result {
+    /// Experiment name
+    name: String,
+    /// Input size in bytes.
+    size: usize,
+    /// Number of iterations.
+    steps: usize,
+    /// Total duration of the experiment.
+    duration: Duration,
+    /// Latency (or reverse throughput) of each operation, in nanoseconds.
+    latency: f64,
+    /// Number of clock cycles per operation.
+    cycles: f64,
+    /// CPU frequency in Hz.
+    freq: f64,
+}
+
+impl Result {
+    pub fn new(size: usize, steps: usize, f: impl Fn()) -> Result {
+        let start = Instant::now();
+        f();
+        let duration = start.elapsed();
+        let freq = get_cpu_freq().unwrap();
+        let latency = duration.as_nanos() as f64 / steps as f64;
+        let cycles = latency / 1000000000. * freq;
+
+        println!(
+            "n = {size:>12}B, duration = {duration:>8.2?}, /it: {latency:>6.2?}ns cycles/it: {cycles:>7.2} freq: {freq:>10}",
+        );
+        Result {
+            name: String::default(),
+            size,
+            steps,
+            duration,
+            latency,
+            cycles,
+            freq,
+        }
+    }
 }

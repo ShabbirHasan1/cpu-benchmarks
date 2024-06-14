@@ -1,3 +1,4 @@
+r: run
 p: plot
 
 run *args='':
@@ -16,6 +17,6 @@ stat *args='': build
     perf stat -d ./target/release/perf {{args}}
 
 open_plots:
-    feh --auto-reload plots/* &
+    feh -Z --auto-reload plots/* &
 plot:
     ./plot.py

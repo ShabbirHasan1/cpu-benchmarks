@@ -1,47 +1,8 @@
-use std::time::{Duration, Instant};
+use clap::Parser;
 
 use util::*;
 
 mod util;
-
-#[derive(serde::Serialize)]
-struct Result {
-    /// Input size in bytes.
-    size: usize,
-    /// Number of iterations.
-    steps: usize,
-    /// Total duration of the experiment.
-    duration: Duration,
-    /// Latency (or reverse throughput) of each operation, in nanoseconds.
-    latency: f64,
-    /// Number of clock cycles per operation.
-    cycles: f64,
-    /// CPU frequency in Hz.
-    freq: f64,
-}
-
-impl Result {
-    fn new(size: usize, steps: usize, f: impl Fn()) -> Result {
-        let start = Instant::now();
-        f();
-        let duration = start.elapsed();
-        let freq = util::get_cpu_freq().unwrap();
-        let latency = duration.as_nanos() as f64 / steps as f64;
-        let cycles = latency / 1000000000. * freq;
-
-        println!(
-            "n = {size:>12}B, duration = {duration:>8.2?}, /it: {latency:>6.2?}ns cycles/it: {cycles:>7.2} freq: {freq:>10}",
-        );
-        Result {
-            size,
-            steps,
-            duration,
-            latency,
-            cycles,
-            freq,
-        }
-    }
-}
 
 /// Pointer-chase a derangement.
 fn pointer_chasing(size: usize) -> Result {
@@ -56,9 +17,46 @@ fn pointer_chasing(size: usize) -> Result {
         }
         assert_eq!(i, 0);
     })
+}
 
+/// Pointer-chase a derangement, B pointers at a time.
+/// Pointers are initialized to be exactly spread out along the cycle.
+fn pointer_chasing_batch<const B: usize>(size: usize) -> Result {
+    let len = size / std::mem::size_of::<usize>();
+    let (v, inv) = util::derangement_with_inv(len);
+    let steps = 100_000_000usize.next_multiple_of(B * len);
+
+    let i0: [usize; B] = std::array::from_fn(|j| inv[j * len / B]);
+    drop(inv);
+    Result::new(size, steps, || {
+        let mut i = i0;
+        for _ in 0..steps / B {
+            for j in 0..B {
+                i[j] = v[i[j]];
+            }
+        }
+        assert_eq!(i, i0);
+    })
+}
+
+#[derive(Parser)]
+struct Args {
+    #[clap(short, long)]
+    large: bool,
 }
 
 fn main() {
-    run_experiment(pointer_chasing);
+    let args = Args::parse();
+    let mut results = vec![];
+    results.extend(run_experiment(pointer_chasing, args.large));
+    // results.extend(run_experiment(pointer_chasing_batch::<1>, args.large));
+    results.extend(run_experiment(pointer_chasing_batch::<2>, args.large));
+    results.extend(run_experiment(pointer_chasing_batch::<4>, args.large));
+    results.extend(run_experiment(pointer_chasing_batch::<8>, args.large));
+    results.extend(run_experiment(pointer_chasing_batch::<16>, args.large));
+    results.extend(run_experiment(pointer_chasing_batch::<32>, args.large));
+    results.extend(run_experiment(pointer_chasing_batch::<64>, args.large));
+    // results.extend(run_experiment(pointer_chasing_batch::<128>, args.large));
+    // results.extend(run_experiment(pointer_chasing_batch::<256>, args.large));
+    save_results(results, "pointer-chasing");
 }

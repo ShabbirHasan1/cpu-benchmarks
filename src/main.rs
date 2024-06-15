@@ -10,7 +10,7 @@ mod util;
 fn pointer_chasing(size: usize) -> Result {
     let len = size / std::mem::size_of::<usize>();
     let v = util::derangement(len);
-    let steps = 100_000_000usize.next_multiple_of(len);
+    let steps = STEPS.next_multiple_of(len);
 
     Result::new(size, steps, || {
         let mut i = 0;
@@ -26,7 +26,7 @@ fn pointer_chasing(size: usize) -> Result {
 fn pointer_chasing_batch<const B: usize>(size: usize) -> Result {
     let len = size / std::mem::size_of::<usize>();
     let (v, inv) = util::derangement_with_inv(len);
-    let steps = 100_000_000usize.next_multiple_of(B * len);
+    let steps = STEPS.next_multiple_of(B * len);
 
     let i0: [usize; B] = std::array::from_fn(|j| inv[j * len / B]);
     drop(inv);
@@ -47,7 +47,7 @@ fn pointer_chasing_batch<const B: usize>(size: usize) -> Result {
 fn pointer_chasing_prefetch<const B: usize>(size: usize) -> Result {
     let len = size / std::mem::size_of::<usize>();
     let (v, inv) = util::derangement_with_inv(len);
-    let steps = 100_000_000usize.next_multiple_of(B * len);
+    let steps = STEPS.next_multiple_of(B * len);
 
     let i0: [usize; B] = std::array::from_fn(|j| inv[j * len / B]);
     drop(inv);
@@ -69,7 +69,7 @@ fn pointer_chasing_prefetch<const B: usize>(size: usize) -> Result {
 fn pointer_chasing_batch_with_work<const B: usize>(size: usize) -> Result {
     let len = size / std::mem::size_of::<usize>();
     let (v, inv) = util::derangement_with_inv(len);
-    let steps = 100_000_000usize.next_multiple_of(B * len);
+    let steps = STEPS.next_multiple_of(B * len);
 
     let i0: [usize; B] = std::array::from_fn(|j| inv[j * len / B]);
     drop(inv);
@@ -93,7 +93,7 @@ fn pointer_chasing_batch_with_work<const B: usize>(size: usize) -> Result {
 fn pointer_chasing_prefetch_with_work<const B: usize>(size: usize) -> Result {
     let len = size / std::mem::size_of::<usize>();
     let (v, inv) = util::derangement_with_inv(len);
-    let steps = 100_000_000usize.next_multiple_of(B * len);
+    let steps = STEPS.next_multiple_of(B * len);
 
     let i0: [usize; B] = std::array::from_fn(|j| inv[j * len / B]);
     drop(inv);
@@ -125,6 +125,7 @@ struct Args {
 }
 
 static ARGS: LazyLock<Args> = LazyLock::new(|| Args::parse());
+static STEPS: LazyLock<usize> = LazyLock::new(|| if ARGS.dense { 100_000_000 } else { 20_000_000 });
 
 #[derive(clap::ValueEnum, Copy, Clone)]
 enum Experiment {

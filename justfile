@@ -17,6 +17,6 @@ stat *args='': build
     perf stat -d ./target/release/perf {{args}}
 
 open_plots:
-    feh -Z --auto-reload plots/* &
+    feh -Z --auto-reload plots/*.png &
 plot:
     ./plot.py

@@ -4,6 +4,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+use crate::ARGS;
+
 /// Return the current CPU frequency in Hz.
 pub(crate) fn get_cpu_freq() -> Option<f64> {
     let cur_cpu = get_cpu()?;
@@ -45,35 +47,41 @@ pub fn derangement_with_inv(len: usize) -> (Vec<usize>, Vec<usize>) {
 
 /// Return an iterator over sizes to iterate over.
 /// Starts at 32B and goes up to ~1GB.
-pub fn sizes(large: bool) -> Vec<usize> {
+pub fn sizes() -> Vec<usize> {
     let mut v = vec![];
-    let max = if large { 30 } else { 24 };
-    for b in 3..max {
+    let from = ARGS.from.unwrap_or(3);
+    let to = ARGS.to.unwrap_or(20);
+    let sparse = ARGS.sparse;
+    let dense = ARGS.dense;
+    for b in from..=to {
         let base = 1 << b;
         v.push(base);
-        v.push(base * 5 / 4);
-        v.push(base * 3 / 2);
-        v.push(base * 7 / 4);
+        if dense {
+            v.push(base * 5 / 4);
+        }
+        if !sparse {
+            v.push(base * 3 / 2);
+        }
+        if dense {
+            v.push(base * 7 / 4);
+        }
     }
     v
 }
 
-pub fn run_experiment(f: impl Fn(usize) -> Result, large: bool) -> Vec<Result> {
+pub fn run_experiment(f: impl Fn(usize) -> Result, results: &mut Vec<Result>) {
     let name = std::any::type_name_of_val(&f);
     let name = name.strip_prefix("perf::").unwrap();
     let name = name.replace("_", "-");
     eprintln!("Running experiment: {}", name);
-    sizes(large)
-        .iter()
-        .map(|size| {
-            let mut r = f(*size);
-            r.name = name.to_string();
-            r
-        })
-        .collect::<Vec<_>>()
+    results.extend(sizes().iter().map(|size| {
+        let mut r = f(*size);
+        r.name = name.to_string();
+        r
+    }));
 }
 
-pub fn save_results(results: Vec<Result>, name: &str) {
+pub fn save_results(results: &Vec<Result>, name: &str) {
     let dir = Path::new("results").to_owned();
     std::fs::create_dir_all(&dir).unwrap();
     let f = dir.join(name).with_extension("json");
@@ -119,5 +127,27 @@ impl Result {
             cycles,
             freq,
         }
+    }
+}
+
+/// Prefetch the given cacheline into L1 cache.
+pub fn prefetch_index<T>(s: &[T], index: usize) {
+    let ptr = unsafe { s.as_ptr().add(index) as *const u64 };
+    #[cfg(target_arch = "x86_64")]
+    unsafe {
+        std::arch::x86_64::_mm_prefetch(ptr as *const i8, std::arch::x86_64::_MM_HINT_T0);
+    }
+    #[cfg(target_arch = "x86")]
+    unsafe {
+        std::arch::x86::_mm_prefetch(ptr as *const i8, std::arch::x86::_MM_HINT_T0);
+    }
+    #[cfg(target_arch = "aarch64")]
+    unsafe {
+        // TODO: Put this behind a feature flag.
+        // std::arch::aarch64::_prefetch(ptr as *const i8, std::arch::aarch64::_PREFETCH_LOCALITY3);
+    }
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64")))]
+    {
+        // Do nothing.
     }
 }

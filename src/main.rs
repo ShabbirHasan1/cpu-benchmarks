@@ -12,7 +12,7 @@ fn pointer_chasing(size: usize) -> Result {
     let v = util::derangement(len);
     let steps = STEPS.next_multiple_of(len);
 
-    Result::new(size, steps, || {
+    Result::new(size, steps, 1, || {
         let mut i = 0;
         for _ in 0..steps {
             i = v[i];
@@ -30,7 +30,7 @@ fn pointer_chasing_batch<const B: usize>(size: usize) -> Result {
 
     let i0: [usize; B] = std::array::from_fn(|j| inv[j * len / B]);
     drop(inv);
-    Result::new(size, steps, || {
+    Result::new(size, steps, B, || {
         let mut i = i0;
         for _ in 0..steps / B {
             for j in 0..B {
@@ -51,7 +51,7 @@ fn pointer_chasing_prefetch<const B: usize>(size: usize) -> Result {
 
     let i0: [usize; B] = std::array::from_fn(|j| inv[j * len / B]);
     drop(inv);
-    Result::new(size, steps, || {
+    Result::new(size, steps, B, || {
         let mut i = i0;
         for _ in 0..steps / B {
             for j in 0..B {
@@ -73,7 +73,7 @@ fn pointer_chasing_batch_with_work<const B: usize>(size: usize) -> Result {
 
     let i0: [usize; B] = std::array::from_fn(|j| inv[j * len / B]);
     drop(inv);
-    Result::new(size, steps, || {
+    Result::new(size, steps, B, || {
         let mut i = i0;
         let mut sum = 0;
         for _ in 0..steps / B {
@@ -97,7 +97,7 @@ fn pointer_chasing_prefetch_with_work<const B: usize>(size: usize) -> Result {
 
     let i0: [usize; B] = std::array::from_fn(|j| inv[j * len / B]);
     drop(inv);
-    Result::new(size, steps, || {
+    Result::new(size, steps, B, || {
         let mut i = i0;
         let mut sum = 0;
         for _ in 0..steps / B {

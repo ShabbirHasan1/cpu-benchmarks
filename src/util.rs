@@ -89,6 +89,8 @@ pub struct Result {
     name: String,
     /// Input size in bytes.
     size: usize,
+    /// Batch size.
+    batch: usize,
     /// Number of iterations.
     steps: usize,
     /// Total duration of the experiment.
@@ -102,7 +104,7 @@ pub struct Result {
 }
 
 impl Result {
-    pub fn new(size: usize, steps: usize, f: impl Fn()) -> Result {
+    pub fn new(size: usize, steps: usize, batch: usize, f: impl Fn()) -> Result {
         let start = Instant::now();
         f();
         let duration = start.elapsed();
@@ -116,6 +118,7 @@ impl Result {
         Result {
             name: String::default(),
             size,
+            batch,
             steps,
             duration,
             latency,

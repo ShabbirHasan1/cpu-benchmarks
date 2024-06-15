@@ -1,4 +1,4 @@
-use std::sync::LazyLock;
+use std::{hint::black_box, sync::LazyLock};
 
 use clap::Parser;
 
@@ -10,14 +10,12 @@ mod util;
 fn pointer_chasing(size: usize) -> Result {
     let len = size / std::mem::size_of::<usize>();
     let v = util::derangement(len);
-    let steps = STEPS.next_multiple_of(len);
-
-    Result::new(size, steps, 1, || {
+    Result::new(size, *STEPS, 1, || {
         let mut i = 0;
-        for _ in 0..steps {
+        for _ in 0..*STEPS {
             i = v[i];
         }
-        assert_eq!(i, 0);
+        black_box(i);
     })
 }
 
@@ -26,18 +24,17 @@ fn pointer_chasing(size: usize) -> Result {
 fn pointer_chasing_batch<const B: usize>(size: usize) -> Result {
     let len = size / std::mem::size_of::<usize>();
     let (v, inv) = util::derangement_with_inv(len);
-    let steps = STEPS.next_multiple_of(B * len);
 
     let i0: [usize; B] = std::array::from_fn(|j| inv[j * len / B]);
     drop(inv);
-    Result::new(size, steps, B, || {
+    Result::new(size, *STEPS, B, || {
         let mut i = i0;
-        for _ in 0..steps / B {
+        for _ in 0..*STEPS / B {
             for j in 0..B {
                 i[j] = v[i[j]];
             }
         }
-        assert_eq!(i, i0);
+        black_box(i);
     })
 }
 
@@ -47,19 +44,18 @@ fn pointer_chasing_batch<const B: usize>(size: usize) -> Result {
 fn pointer_chasing_prefetch<const B: usize>(size: usize) -> Result {
     let len = size / std::mem::size_of::<usize>();
     let (v, inv) = util::derangement_with_inv(len);
-    let steps = STEPS.next_multiple_of(B * len);
 
     let i0: [usize; B] = std::array::from_fn(|j| inv[j * len / B]);
     drop(inv);
-    Result::new(size, steps, B, || {
+    Result::new(size, *STEPS, B, || {
         let mut i = i0;
-        for _ in 0..steps / B {
+        for _ in 0..*STEPS / B {
             for j in 0..B {
                 i[j] = v[i[j]];
                 prefetch_index(&v, i[j]);
             }
         }
-        assert_eq!(i, i0);
+        black_box(i);
     })
 }
 
@@ -69,21 +65,20 @@ fn pointer_chasing_prefetch<const B: usize>(size: usize) -> Result {
 fn pointer_chasing_batch_with_work<const B: usize>(size: usize) -> Result {
     let len = size / std::mem::size_of::<usize>();
     let (v, inv) = util::derangement_with_inv(len);
-    let steps = STEPS.next_multiple_of(B * len);
 
     let i0: [usize; B] = std::array::from_fn(|j| inv[j * len / B]);
     drop(inv);
-    Result::new(size, steps, B, || {
+    Result::new(size, *STEPS, B, || {
         let mut i = i0;
         let mut sum = 0;
-        for _ in 0..steps / B {
+        for _ in 0..*STEPS / B {
             for j in 0..B {
                 i[j] = v[i[j]];
                 sum += len / (i[j] + 1);
             }
         }
-        assert_eq!(i, i0);
-        assert!(sum > len);
+        black_box(i);
+        black_box(sum);
     })
 }
 
@@ -93,7 +88,7 @@ fn pointer_chasing_batch_with_work<const B: usize>(size: usize) -> Result {
 fn pointer_chasing_prefetch_with_work<const B: usize>(size: usize) -> Result {
     let len = size / std::mem::size_of::<usize>();
     let (v, inv) = util::derangement_with_inv(len);
-    let steps = STEPS.next_multiple_of(B * len);
+    let steps = STEPS.next_multiple_of(B);
 
     let i0: [usize; B] = std::array::from_fn(|j| inv[j * len / B]);
     drop(inv);
@@ -107,8 +102,8 @@ fn pointer_chasing_prefetch_with_work<const B: usize>(size: usize) -> Result {
                 prefetch_index(&v, i[j]);
             }
         }
-        assert_eq!(i, i0);
-        assert!(sum > len);
+        black_box(i);
+        black_box(sum);
     })
 }
 
@@ -125,7 +120,7 @@ struct Args {
 }
 
 static ARGS: LazyLock<Args> = LazyLock::new(|| Args::parse());
-static STEPS: LazyLock<usize> = LazyLock::new(|| if ARGS.dense { 100_000_000 } else { 20_000_000 });
+static STEPS: LazyLock<usize> = LazyLock::new(|| if ARGS.dense { 100_000_000 } else { 10_000_000 });
 
 #[derive(clap::ValueEnum, Copy, Clone)]
 enum Experiment {

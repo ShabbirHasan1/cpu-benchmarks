@@ -113,7 +113,7 @@ impl Result {
         let cycles = latency / 1000000000. * freq;
 
         println!(
-            "n = {size:>12}B, duration = {duration:>8.2?}, /it: {latency:>6.2?}ns cycles/it: {cycles:>7.2} freq: {freq:>10}",
+            "n = {size:>12}B, s/it: {latency:>6.2?}ns cycles/it: {cycles:>7.2} freq: {freq:>10}",
         );
         Result {
             name: String::default(),

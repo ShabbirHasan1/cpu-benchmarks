@@ -7,3 +7,14 @@ Useful resources:
 - https://en.algorithmica.org
 - instruction tables: https://www.agner.org/optimize/instruction_tables.pdf
 - https://travisdowns.github.io/blog/2019/06/11/speed-limits.html
+- https://www.realworldtech.com/haswell-cpu/5/
+  - 10 line-fill buffers?
+- https://github.com/ssvb/tinymembench
+  - measures memory bandwidth
+
+- Answers at https://stackoverflow.com/questions/45382914/parallel-memory-access-on-modern-processors
+  #+begin_quote
+The path to memory is quite long and in fact the actual DRAM access is only a short part of the wall clock time. Getting all the way from the core out to the controller and back to the L1 takes most of the time. The "32 simultaneous requests" is more about giving the memory controller lots of visibility into pending requests so it can schedule them well (trying to group reads to the same page to avoid the page-open delay).
+  #+end_quote
+- https://stackoverflow.com/questions/19472036/does-software-prefetching-allocate-a-line-fill-buffer-lfb
+- https://www.quora.com/Is-sequential-access-to-RAM-faster-than-random/answer/Dave-Dopson?ch=10&oid=1477743647847567&share=fefe4bc9&srid=3Dq3A&target_type=answer

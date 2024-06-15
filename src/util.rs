@@ -1,6 +1,8 @@
 use rand::prelude::SliceRandom;
 use std::{
+    collections::HashMap,
     path::Path,
+    sync::{LazyLock, Mutex},
     time::{Duration, Instant},
 };
 
@@ -30,11 +32,18 @@ pub(crate) fn get_cpu() -> Option<i32> {
     }
 }
 
+static DERANGEMENT: LazyLock<Mutex<HashMap<usize, (Vec<usize>, Vec<usize>)>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
 pub fn derangement(len: usize) -> Vec<usize> {
     derangement_with_inv(len).0
 }
 
 pub fn derangement_with_inv(len: usize) -> (Vec<usize>, Vec<usize>) {
+    let mut d = DERANGEMENT.lock().unwrap();
+    if let Some(v) = d.get(&len) {
+        return v.clone();
+    }
     let mut inv = (0..len).collect::<Vec<_>>();
     inv.shuffle(&mut rand::thread_rng());
     let mut v = vec![0; len];
@@ -42,6 +51,7 @@ pub fn derangement_with_inv(len: usize) -> (Vec<usize>, Vec<usize>) {
         v[inv[i]] = inv[i + 1];
     }
     v[inv[len - 1]] = inv[0];
+    d.insert(len, (v.clone(), inv.clone()));
     (v, inv)
 }
 

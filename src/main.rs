@@ -119,14 +119,20 @@ struct Args {
     #[clap(short, long)]
     to: Option<usize>,
     #[clap(short, long)]
-    sparse: bool,
-    #[clap(short, long)]
     dense: bool,
+    #[clap(short, long)]
+    experiment: Option<Experiment>,
 }
 
 static ARGS: LazyLock<Args> = LazyLock::new(|| Args::parse());
 
-fn main() {
+#[derive(clap::ValueEnum, Copy, Clone)]
+enum Experiment {
+    PointerChasing,
+    PointerChasingWithWork,
+}
+
+fn pointer_chasing_exp() {
     let results = &mut vec![];
     run_experiment(pointer_chasing, results);
     run_experiment(pointer_chasing_batch::<2>, results);
@@ -152,6 +158,9 @@ fn main() {
     run_experiment(pointer_chasing_prefetch::<32>, results);
     run_experiment(pointer_chasing_prefetch::<64>, results);
     save_results(results, "pointer-chasing");
+}
+
+fn pointer_chasing_with_work_exp() {
     let results = &mut vec![];
     run_experiment(pointer_chasing_batch_with_work::<1>, results);
     run_experiment(pointer_chasing_batch_with_work::<2>, results);
@@ -182,4 +191,21 @@ fn main() {
     run_experiment(pointer_chasing_prefetch_with_work::<32>, results);
     run_experiment(pointer_chasing_prefetch_with_work::<64>, results);
     save_results(results, "pointer-chasing-with-work");
+}
+
+fn main() {
+    let experiments = if let Some(e) = ARGS.experiment {
+        vec![e]
+    } else {
+        vec![
+            Experiment::PointerChasing,
+            Experiment::PointerChasingWithWork,
+        ]
+    };
+    for e in experiments {
+        match e {
+            Experiment::PointerChasing => pointer_chasing_exp(),
+            Experiment::PointerChasingWithWork => pointer_chasing_with_work_exp(),
+        }
+    }
 }

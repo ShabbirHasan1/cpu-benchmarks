@@ -49,20 +49,15 @@ pub fn derangement_with_inv(len: usize) -> (Vec<usize>, Vec<usize>) {
 /// Starts at 32B and goes up to ~1GB.
 pub fn sizes() -> Vec<usize> {
     let mut v = vec![];
-    let from = ARGS.from.unwrap_or(3);
-    let to = ARGS.to.unwrap_or(20);
-    let sparse = ARGS.sparse;
+    let from = ARGS.from.unwrap_or(14);
+    let to = ARGS.to.unwrap_or(25);
     let dense = ARGS.dense;
     for b in from..=to {
         let base = 1 << b;
         v.push(base);
         if dense {
             v.push(base * 5 / 4);
-        }
-        if !sparse {
             v.push(base * 3 / 2);
-        }
-        if dense {
             v.push(base * 7 / 4);
         }
     }

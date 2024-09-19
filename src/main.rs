@@ -1,37 +1,34 @@
+#![allow(incomplete_features)]
+#![feature(generic_const_exprs, slice_index_methods)]
+
 use std::{hint::black_box, sync::LazyLock};
 
 use clap::Parser;
 
+mod memory;
+mod util;
 use util::*;
 
-mod util;
+mod latency;
 
-/// Pointer-chase a derangement.
-fn pointer_chasing(size: usize) -> Result {
-    let len = size / std::mem::size_of::<usize>();
-    let v = util::derangement(len);
-    Result::new(size, *STEPS, 1, || {
-        let mut i = 0;
-        for _ in 0..*STEPS {
-            i = v[i];
-        }
-        black_box(i);
-    })
-}
+const CACHELINE: usize = 64;
+type PaddedUsize = Padded<usize, CACHELINE>;
+type PaddedPointer = Padded<*const usize, CACHELINE>;
 
 /// Pointer-chase a derangement, B pointers at a time.
 /// Pointers are initialized to be exactly spread out along the cycle.
 fn pointer_chasing_batch<const B: usize>(size: usize) -> Result {
-    let len = size / std::mem::size_of::<usize>();
-    let (v, inv) = util::derangement_with_inv(len);
+    let len = size / std::mem::size_of::<PaddedUsize>();
+    let (v, order) = util::derangement_with_order::<PaddedUsize>(size);
+    let v: Vec<PaddedUsize> = v.iter().map(|&x| x.into()).collect();
 
-    let i0: [usize; B] = std::array::from_fn(|j| inv[j * len / B]);
-    drop(inv);
-    Result::new(size, *STEPS, B, || {
+    let i0: [usize; B] = std::array::from_fn(|j| order[j * len / B]);
+    drop(order);
+    Result::new(size, *STEPS, B, &v, || {
         let mut i = i0;
         for _ in 0..*STEPS / B {
             for j in 0..B {
-                i[j] = v[i[j]];
+                i[j] = *v[i[j]];
             }
         }
         black_box(i);
@@ -41,17 +38,20 @@ fn pointer_chasing_batch<const B: usize>(size: usize) -> Result {
 /// Pointer-chase a derangement, B pointers at a time.
 /// Pointers are initialized to be exactly spread out along the cycle.
 /// Prefetch the location for the next iteration.
-fn pointer_chasing_prefetch<const B: usize>(size: usize) -> Result {
-    let len = size / std::mem::size_of::<usize>();
-    let (v, inv) = util::derangement_with_inv(len);
+fn pointer_chasing_prefetch<const B: usize>(size: usize) -> Result
+where
+    [(); CACHELINE - std::mem::size_of::<usize>()]:,
+{
+    let (v, order) = util::derangement_with_order::<PaddedUsize>(size);
+    let v: Vec<PaddedUsize> = v.iter().map(|&x| x.into()).collect();
 
-    let i0: [usize; B] = std::array::from_fn(|j| inv[j * len / B]);
-    drop(inv);
-    Result::new(size, *STEPS, B, || {
+    let i0: [usize; B] = std::array::from_fn(|j| order[j * order.len() / B]);
+    drop(order);
+    Result::new(size, *STEPS, B, &v, || {
         let mut i = i0;
         for _ in 0..*STEPS / B {
             for j in 0..B {
-                i[j] = v[i[j]];
+                i[j] = *v[i[j]];
                 prefetch_index(&v, i[j]);
             }
         }
@@ -63,18 +63,18 @@ fn pointer_chasing_prefetch<const B: usize>(size: usize) -> Result {
 /// Pointers are initialized to be exactly spread out along the cycle.
 /// Each iteration does some 'heavy' work, to block pipelining.
 fn pointer_chasing_batch_with_work<const B: usize>(size: usize) -> Result {
-    let len = size / std::mem::size_of::<usize>();
-    let (v, inv) = util::derangement_with_inv(len);
+    let (v, order) = util::derangement_with_order::<PaddedUsize>(size);
+    let v: Vec<PaddedUsize> = v.iter().map(|&x| x.into()).collect();
 
-    let i0: [usize; B] = std::array::from_fn(|j| inv[j * len / B]);
-    drop(inv);
-    Result::new(size, *STEPS, B, || {
+    let i0: [usize; B] = std::array::from_fn(|j| order[j * order.len() / B]);
+    drop(order);
+    Result::new(size, *STEPS, B, &v, || {
         let mut i = i0;
         let mut sum = 0;
         for _ in 0..*STEPS / B {
             for j in 0..B {
-                i[j] = v[i[j]];
-                sum += len / (i[j] + 1);
+                i[j] = *v[i[j]];
+                sum += v.len() / (i[j] + 1);
             }
         }
         black_box(i);
@@ -86,19 +86,19 @@ fn pointer_chasing_batch_with_work<const B: usize>(size: usize) -> Result {
 /// Pointers are initialized to be exactly spread out along the cycle.
 /// Prefetch the location for the next iteration.
 fn pointer_chasing_prefetch_with_work<const B: usize>(size: usize) -> Result {
-    let len = size / std::mem::size_of::<usize>();
-    let (v, inv) = util::derangement_with_inv(len);
+    let (v, order) = util::derangement_with_order::<PaddedUsize>(size);
+    let v: Vec<PaddedUsize> = v.iter().map(|&x| x.into()).collect();
     let steps = STEPS.next_multiple_of(B);
 
-    let i0: [usize; B] = std::array::from_fn(|j| inv[j * len / B]);
-    drop(inv);
-    Result::new(size, steps, B, || {
+    let i0: [usize; B] = std::array::from_fn(|j| order[j * order.len() / B]);
+    drop(order);
+    Result::new(size, steps, B, &v, || {
         let mut i = i0;
         let mut sum = 0;
         for _ in 0..steps / B {
             for j in 0..B {
-                i[j] = v[i[j]];
-                sum += len / (i[j] + 1);
+                i[j] = *v[i[j]];
+                sum += v.len() / (i[j] + 1);
                 prefetch_index(&v, i[j]);
             }
         }
@@ -114,23 +114,26 @@ struct Args {
     #[clap(short, long)]
     to: Option<usize>,
     #[clap(short, long)]
-    dense: bool,
+    release: bool,
     #[clap(short, long)]
+    dense: bool,
     experiment: Option<Experiment>,
 }
 
 static ARGS: LazyLock<Args> = LazyLock::new(|| Args::parse());
-static STEPS: LazyLock<usize> = LazyLock::new(|| if ARGS.dense { 100_000_000 } else { 10_000_000 });
+static STEPS: LazyLock<usize> =
+    LazyLock::new(|| if ARGS.release { 10_000_000 } else { 10_000_000 });
 
 #[derive(clap::ValueEnum, Copy, Clone)]
 enum Experiment {
+    Latency,
     PointerChasing,
     PointerChasingWithWork,
 }
 
 fn pointer_chasing_exp() {
     let results = &mut vec![];
-    run_experiment(pointer_chasing, results);
+    run_experiment(latency::pointer_chasing, results);
     run_experiment(pointer_chasing_batch::<2>, results);
     run_experiment(pointer_chasing_batch::<4>, results);
     run_experiment(pointer_chasing_batch::<8>, results);
@@ -190,18 +193,10 @@ fn pointer_chasing_with_work_exp() {
 }
 
 fn main() {
-    let experiments = if let Some(e) = ARGS.experiment {
-        vec![e]
-    } else {
-        vec![
-            Experiment::PointerChasing,
-            Experiment::PointerChasingWithWork,
-        ]
-    };
-    for e in experiments {
-        match e {
-            Experiment::PointerChasing => pointer_chasing_exp(),
-            Experiment::PointerChasingWithWork => pointer_chasing_with_work_exp(),
-        }
+    let e = ARGS.experiment.unwrap_or(Experiment::Latency);
+    match e {
+        Experiment::Latency => latency::latency_exp(),
+        Experiment::PointerChasing => pointer_chasing_exp(),
+        Experiment::PointerChasingWithWork => pointer_chasing_with_work_exp(),
     }
 }

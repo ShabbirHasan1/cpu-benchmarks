@@ -1,12 +1,14 @@
 [package]
-name = "perf"
+name = "high-throughput-searching"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+alloc-madvise = "0.3.0"
 clap = { version = "4.5.7", features = ["derive"] }
 cpu-freq = "0.0.2"
 libc = "0.2.155"
 rand = "0.8.5"
 serde = { version = "1.0.203", features = ["derive"] }
 serde_json = "1.0.117"
+size = "0.4.1"

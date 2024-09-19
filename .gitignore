@@ -1,4 +1,6 @@
 /target
 /plots/
 /results/
+/results-release/
 /instruction_tables.pdf
+/perf.data*

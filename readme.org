@@ -1,6 +1,6 @@
 * Benchmarking CPU performance characteristics
 
-These are some scripts & plots inspired by Algorithmica, e.g., the
+These are some scripts & plots for my [[https://curiouscoding.nl/posts/high-throughput-searching-1/][blogpost on CPU performance]], and heavily inspired by Algorithmica, e.g., the
 [[https://en.algorithmica.org/hpc/cpu-cache/latency/][post on measuring memory latency]].
 
 Useful resources:

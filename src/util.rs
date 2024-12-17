@@ -93,13 +93,6 @@ pub struct AlignedVec<T> {
 }
 
 impl<T> AlignedVec<T> {
-    pub fn new(v: &Vec<T>) -> Self
-    where
-        T: Clone,
-    {
-        Self::from(v)
-    }
-
     pub fn from<U>(v: &Vec<U>) -> Self
     where
         U: Clone,

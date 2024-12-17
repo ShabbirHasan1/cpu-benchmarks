@@ -1,15 +1,13 @@
 #![allow(incomplete_features)]
 #![feature(generic_const_exprs, slice_index_methods)]
 
+use clap::Parser;
 use std::{hint::black_box, sync::LazyLock};
 
-use clap::Parser;
-
-mod memory;
-mod util;
-use util::*;
-
 mod latency;
+mod util;
+
+use util::*;
 
 const CACHELINE: usize = 64;
 type PaddedUsize = Padded<usize, CACHELINE>;

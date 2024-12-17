@@ -246,8 +246,15 @@ impl Result {
 }
 
 /// Prefetch the given cacheline into L1 cache.
+#[allow(unused)]
 pub fn prefetch_index<T>(s: &[T], index: usize) {
-    let ptr = unsafe { s.as_ptr().add(index) as *const u64 };
+    let ptr = unsafe { s.as_ptr().add(index) };
+    prefetch_ptr(ptr);
+}
+
+/// Prefetch the given cacheline into L1 cache.
+pub fn prefetch_ptr<T>(ptr: *const T) {
+    let ptr = ptr as *const u64;
     #[cfg(target_arch = "x86_64")]
     unsafe {
         std::arch::x86_64::_mm_prefetch(ptr as *const i8, std::arch::x86_64::_MM_HINT_T0);

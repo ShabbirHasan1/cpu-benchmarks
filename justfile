@@ -5,11 +5,9 @@ run *args='':
     cargo run -r --quiet -- {{args}}
 build:
     @cargo build -r --quiet
-record *args='': build
-    @perf record ./target/release/perf {{args}}
-report:
+perf *args='': build
+    @perf record cargo run -r --quiet -- {{args}}
     @perf report
-perf: record report
 flame: build
     @cargo flamegraph --open
 
@@ -31,12 +29,22 @@ release: cpufreq
     pkill discord || true
     pkill htop || true
     pkill chromium || true
-    cargo run -r -- --release
+    cargo run -r -- latency --release
+    cargo run -r -- batch --release
 
 watch-thp:
     watch -n 0.1 "grep -E 'trans|thp_fault_alloc' /proc/vmstat"
 
 enable-thp:
+    @echo 'WAS' && cat /sys/kernel/mm/transparent_hugepage/enabled
     echo always | sudo tee /sys/kernel/mm/transparent_hugepage/enabled
 disable-thp:
+    @echo 'WAS' && cat /sys/kernel/mm/transparent_hugepage/enabled
     echo never | sudo tee /sys/kernel/mm/transparent_hugepage/enabled
+
+mevi_init:
+     sudo sysctl -w vm.unprivileged_userfaultfd=1
+mevi *args='':
+    cargo build -r
+    # set -x RUST_LOG=warn
+    mevi ./target/release/high-throughput-searching {{args}}

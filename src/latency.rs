@@ -75,7 +75,6 @@ pub fn raw_pointer_chasing_padded(size: usize) -> Result {
 
 pub fn pointer_chasing_padded_aligned(size: usize) -> Result {
     let v = util::derangement::<PaddedUsize>(size);
-    let v: Vec<PaddedUsize> = v.iter().map(|&x| x.into()).collect();
     let v = AlignedVec::<PaddedUsize>::from(&v);
 
     Result::new(size, *STEPS, 1, &v, || {

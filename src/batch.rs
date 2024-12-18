@@ -12,7 +12,6 @@ fn setup_batch<const B: usize>(
         v[i] = (unsafe { offset.offset(v_usize[i] as isize) } as *const usize).into();
     }
     let i0: [_; B] = from_fn(|i| *v[order[i * v.len() / B]]);
-    drop(order);
     (v, i0)
 }
 

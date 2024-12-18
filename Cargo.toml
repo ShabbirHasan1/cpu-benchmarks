@@ -3,6 +3,11 @@ name = "high-throughput-searching"
 version = "0.1.0"
 edition = "2021"
 
+[profile.release]
+incremental = true
+debug = true
+panic = 'abort'
+
 [dependencies]
 alloc-madvise = "0.3.0"
 clap = { version = "4.5.7", features = ["derive"] }

@@ -193,7 +193,12 @@ pub fn run_experiment(f: impl Fn(usize) -> Result, results: &mut Vec<Result>) {
 pub fn save_results(results: &Vec<Result>, name: &str) {
     let dir = Path::new("results").to_owned();
     std::fs::create_dir_all(&dir).unwrap();
-    let f = dir.join(name).with_extension("json");
+    let f = if ARGS.release {
+        dir.join(&format!("{name}-release"))
+    } else {
+        dir.join(name)
+    };
+    let f = f.with_extension("json");
     let f = std::fs::File::create(f).unwrap();
     serde_json::to_writer(f, &results).unwrap();
 }

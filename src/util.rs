@@ -100,13 +100,17 @@ impl<T> AlignedVec<T> {
     {
         let len = v.len();
         let size = len * std::mem::size_of::<T>();
-        // Round size up to the next multiple of 4MB.
-        let size = size.next_multiple_of(2 * 1024 * 1024);
-        let mut mem = alloc_madvise::Memory::allocate(size, false, true).unwrap();
+        // Round size up to the next multiple of 2MB. Or actually, round up to
+        // a multiple of 32MB to avoid reusing existing allocated heap memory.
+        const NO_HEAP: bool = true;
+        let mbs = if NO_HEAP { 32 } else { 2 };
+        let size = size.next_multiple_of(mbs * 1024 * 1024);
+        let mut mem = alloc_madvise::Memory::allocate(size, false, false).unwrap();
         let mem_mut: &mut [usize] = mem.as_mut();
         let (pref, mem_mut, suf) = unsafe { mem_mut.align_to_mut::<T>() };
         assert!(pref.is_empty());
         assert!(suf.is_empty());
+
         for i in 0..len {
             mem_mut[i] = v[i].clone().into();
         }

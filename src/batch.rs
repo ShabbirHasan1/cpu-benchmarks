@@ -15,7 +15,8 @@ fn setup_batch<const B: usize>(
     (v, i0)
 }
 
-pub fn batch_inner<const B: usize, const PREFETCH: bool, const WORK: bool>(size: usize) -> Result {
+pub fn batch_impl<const B: usize, const PREFETCH: bool, const WORK: usize>(size: usize) -> Result {
+    let loops = black_box(WORK);
     let (v, i0) = setup_batch::<B>(size);
     let offset = v.as_ptr() as *const usize;
     Result::new(size, *STEPS, B, &v, || {
@@ -25,10 +26,18 @@ pub fn batch_inner<const B: usize, const PREFETCH: bool, const WORK: bool>(size:
             for i in &mut is {
                 *i = unsafe { **i } as *const usize;
                 if PREFETCH {
-                    prefetch_ptr(i);
+                    prefetch_ptr(*i);
                 }
-                if WORK {
-                    sum += v.len() / (unsafe { i.offset_from(offset) } + 1) as usize;
+                if WORK > 0 {
+                    let mut x = unsafe { (*i).offset_from(offset) } as usize;
+                    let mut y = x;
+                    let mut z = x;
+                    for _ in 0..loops {
+                        x = x + (x >> 1);
+                        y = y.widening_mul(x).1;
+                        z += y;
+                    }
+                    sum += z;
                 }
             }
         }
@@ -38,16 +47,29 @@ pub fn batch_inner<const B: usize, const PREFETCH: bool, const WORK: bool>(size:
 }
 
 pub fn batch<const B: usize>(size: usize) -> Result {
-    batch_inner::<B, false, false>(size)
+    batch_impl::<B, false, 0>(size)
 }
+#[allow(unused)]
 pub fn batch_prefetch<const B: usize>(size: usize) -> Result {
-    batch_inner::<B, true, false>(size)
+    batch_impl::<B, true, 0>(size)
 }
-pub fn batch_work<const B: usize>(size: usize) -> Result {
-    batch_inner::<B, false, true>(size)
+pub fn batch_work3<const B: usize>(size: usize) -> Result {
+    batch_impl::<B, false, 3>(size)
 }
-pub fn batch_prefetch_work<const B: usize>(size: usize) -> Result {
-    batch_inner::<B, true, true>(size)
+pub fn batch_prefetch_work3<const B: usize>(size: usize) -> Result {
+    batch_impl::<B, true, 3>(size)
+}
+pub fn batch_work6<const B: usize>(size: usize) -> Result {
+    batch_impl::<B, false, 6>(size)
+}
+pub fn batch_prefetch_work6<const B: usize>(size: usize) -> Result {
+    batch_impl::<B, true, 6>(size)
+}
+pub fn batch_work12<const B: usize>(size: usize) -> Result {
+    batch_impl::<B, false, 12>(size)
+}
+pub fn batch_prefetch_work12<const B: usize>(size: usize) -> Result {
+    batch_impl::<B, true, 12>(size)
 }
 
 pub fn batch_exp() {
@@ -56,37 +78,22 @@ pub fn batch_exp() {
     run_experiment(batch::<2>, results);
     run_experiment(batch::<4>, results);
     run_experiment(batch::<8>, results);
+    run_experiment(batch::<10>, results);
+    run_experiment(batch::<11>, results);
+    run_experiment(batch::<12>, results);
+    run_experiment(batch::<13>, results);
     run_experiment(batch::<16>, results);
     run_experiment(batch::<32>, results);
-    run_experiment(batch::<64>, results);
-    run_experiment(batch::<128>, results);
 
-    run_experiment(batch_prefetch::<1>, results);
-    run_experiment(batch_prefetch::<2>, results);
-    run_experiment(batch_prefetch::<4>, results);
-    run_experiment(batch_prefetch::<8>, results);
     run_experiment(batch_prefetch::<16>, results);
-    run_experiment(batch_prefetch::<32>, results);
-    run_experiment(batch_prefetch::<64>, results);
-    run_experiment(batch_prefetch::<128>, results);
 
-    run_experiment(batch_work::<1>, results);
-    run_experiment(batch_work::<2>, results);
-    run_experiment(batch_work::<4>, results);
-    run_experiment(batch_work::<8>, results);
-    run_experiment(batch_work::<16>, results);
-    run_experiment(batch_work::<32>, results);
-    run_experiment(batch_work::<64>, results);
-    run_experiment(batch_work::<128>, results);
+    run_experiment(batch_work3::<16>, results);
+    run_experiment(batch_work6::<16>, results);
+    run_experiment(batch_work12::<16>, results);
 
-    run_experiment(batch_prefetch_work::<1>, results);
-    run_experiment(batch_prefetch_work::<2>, results);
-    run_experiment(batch_prefetch_work::<4>, results);
-    run_experiment(batch_prefetch_work::<8>, results);
-    run_experiment(batch_prefetch_work::<16>, results);
-    run_experiment(batch_prefetch_work::<32>, results);
-    run_experiment(batch_prefetch_work::<64>, results);
-    run_experiment(batch_prefetch_work::<128>, results);
+    run_experiment(batch_prefetch_work3::<16>, results);
+    run_experiment(batch_prefetch_work6::<16>, results);
+    run_experiment(batch_prefetch_work12::<16>, results);
 
-    save_results(results, "batching");
+    save_results(results, "batch");
 }

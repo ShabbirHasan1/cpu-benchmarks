@@ -1,5 +1,5 @@
 #![allow(incomplete_features)]
-#![feature(generic_const_exprs, slice_index_methods)]
+#![feature(generic_const_exprs, slice_index_methods, bigint_helper_methods)]
 
 use clap::Parser;
 use std::{hint::black_box, sync::LazyLock};
